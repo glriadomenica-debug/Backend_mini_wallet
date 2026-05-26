@@ -9,6 +9,8 @@ use App\Helpers\ApiMessage;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use App\Models\Wallet;
+
 
 class AuthController extends Controller
 {
@@ -31,10 +33,12 @@ class AuthController extends Controller
             return ApiMessage::error($validator->errors(), 400);
         }
         $user = User::where('email', $request->email)->first();
-        if (!$user) {
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return ApiMessage::error('Error', 'User or Password is incorrect', 401);
         }
 
+        $user->tokens()->delete(); //untuk menghapus token login lama
         $token = $user->createToken('auth_token')->plainTextToken;
         $data = [
             'user' => $user,
@@ -84,6 +88,11 @@ class AuthController extends Controller
                 $user->phone_number = $request->phone_number;
                 $user->password = bcrypt($request->password);
                 $user->save();
+
+                Wallet::create([
+                    'user_id' => $user->id,
+                    'balance' => 0
+                ]);
 
                 DB::commit();
                 return ApiMessage::success('Success', 'Registration successful', 201);
