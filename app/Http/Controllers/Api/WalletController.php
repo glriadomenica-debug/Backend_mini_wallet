@@ -10,11 +10,13 @@ use Illuminate\Support\Facades\Auth;
 
 class WalletController extends Controller
 {
-    public function balance()
+    public function balance(Request $request)
     {
-        $wallet = Wallet::where('user_id', Auth::id())->first();
+        $wallet = Wallet::where('user_id', $request->user()->id)->first();
+
         return response()->json([
-            'balance' => $wallet->balance
+            'success' => true,
+            'data' => $wallet
         ]);
     }
 
