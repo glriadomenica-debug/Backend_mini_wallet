@@ -6,8 +6,8 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\AuthController;
 
-Route::post('/register', [AuthController::class, 'registration']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/register', [AuthController::class, 'registration']);
+Route::post('/auth/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -19,5 +19,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
   Route::get('/transactions', [TransactionController::class, 'history']);
 
-  Route::post('/logout', [AuthController::class, 'logout']);
 });
