@@ -91,7 +91,7 @@ class TransactionController extends Controller
             ->get()
             ->map(function ($trx) use ($userId) {
 
-                // default
+                //iniciate
                 $title = '';
                 $sign = '+';
 
@@ -121,7 +121,7 @@ class TransactionController extends Controller
                     'sign' => $sign,
                     'created_at' => $trx->created_at,
                 ];
-            });
+            }); 
 
         return response()->json([
             'message' => 'Success get transactions',
