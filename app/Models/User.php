@@ -22,6 +22,7 @@ class User extends Authenticatable
         'email',
         'phone_number',
         'password',
+        'role'
     ];
 
     /**
@@ -47,15 +48,16 @@ class User extends Authenticatable
         ];
     }
 
-    public function wallet() {
+    public function wallet()
+    {
         return $this->hasOne(Wallet::class);
     }
 
-    public function sentTransactions() {
-        return $this->hasMany(Transaction::class, 'sender_id');
-    }
+    // public function sentTransactions() {
+    //     return $this->hasMany(Transaction::class, 'sender_id');
+    // }
 
-    public function receivedTransactions() {
-        return $this->hasMany(Transaction::class, 'receiver_id');
-    }
+    // public function receivedTransactions() {
+    //     return $this->hasMany(Transaction::class, 'receiver_id');
+    // }
 }
