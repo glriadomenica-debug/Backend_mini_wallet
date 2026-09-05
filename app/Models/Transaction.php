@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Transaction extends Model
 {
     protected $fillable = [
-        'sender_id',
-        'receiver_id',
+        'user_id',
+        'performed_by',
         'type',
         'amount',
         'description',
@@ -18,13 +18,13 @@ class Transaction extends Model
         'amount' => 'decimal:2',
     ];
 
-    public function sender()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'sender_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function receiver()
+    public function performedBy()
     {
-        return $this->belongsTo(User::class, 'receiver_id');
+        return $this->belongsTo(User::class, 'performed_by');
     }
 }
