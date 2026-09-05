@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\AuthController;
 Route::post('/auth/login', [AuthController::class, 'login']);
 
 Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+  Route::post('/admin/users', [AuthController::class, 'createCustomer']);
+
+  // route lama 
   Route::get('/balance', [WalletController::class, 'balance']);
   Route::post('/topup', [WalletController::class, 'topup']);
   Route::post('/transfer', [TransactionController::class, 'transfer']);
