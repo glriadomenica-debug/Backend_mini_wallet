@@ -4,128 +4,181 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
-use App\Models\User;
-use App\Models\Wallet;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Symfony\Contracts\Service\Attribute\Required;
+use App\Models\User;
 
 class TransactionController extends Controller
 {
-    public function transfer(Request $request)
+    public function history(Request $request)
     {
-        $request->validate([
-            'username' => 'required',
-            'phone_number' => 'required',
-            'amount' => 'required|numeric|min:1'
-        ]);
+        $transactions = Transaction::where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($transaction) {
 
-        $senderUser = Auth::user();
+                $type = strtolower($transaction->type ?? '');
 
-        // cari user tujuan
-        $receiverUser = User::where('username', $request->username)
-            ->where('phone_number', $request->phone_number)
-            ->first();
+                /*
+                |--------------------------------------------------------------------------
+                | DETERMINE TRANSACTION DIRECTION
+                |--------------------------------------------------------------------------
+                */
 
-        // user tidak ditemukan
-        if (!$receiverUser) {
-            return response()->json([
-                'message' => 'Receiver not found'
-            ], 404);
-        }
+                $incomeTypes = [
+                    'topup',
+                    'balance_add',
+                    'deposit',
+                    'money_in',
+                    'received',
+                    'transfer_in',
+                    'credit',
+                ];
 
-        // tidak boleh transfer ke diri sendiri
-        if ($receiverUser->id == $senderUser->id) {
-            return response()->json([
-                'message' => 'You cannot transfer to yourself'
-            ], 400);
-        }
+                $expenseTypes = [
+                    'payment',
+                    'shopee_payment',
+                    'purchase',
+                    'checkout',
+                    'expense',
+                    'debit',
+                    'transfer',
+                    'transfer_out',
+                    'money_out',
+                ];
 
-        $senderWallet = Wallet::where('user_id', $senderUser->id)->first();
+                if (in_array($type, $incomeTypes)) {
+                    $direction = 'income';
+                } elseif (in_array($type, $expenseTypes)) {
+                    $direction = 'expense';
+                } else {
+                    $direction = 'expense';
+                }
 
-        $receiverWallet = Wallet::where('user_id', $receiverUser->id)->first();
+                /*
+                |--------------------------------------------------------------------------
+                | TITLE
+                |--------------------------------------------------------------------------
+                */
 
-        if ($senderWallet->balance < $request->amount) {
-            return response()->json([
-                'message' => 'Insufficient balance'
-            ], 400);
-        }
+                if (in_array($type, [
+                    'topup',
+                    'balance_add',
+                    'deposit',
+                ])) {
+                    $title = 'Top Up';
+                } elseif (in_array($type, [
+                    'transfer_in',
+                    'received',
+                ])) {
+                    $title = 'Money Received';
+                } elseif (in_array($type, [
+                    'transfer',
+                    'transfer_out',
+                ])) {
+                    $title = 'Transfer';
+                } elseif (in_array($type, [
+                    'payment',
+                    'shopee_payment',
+                    'purchase',
+                    'checkout',
+                ])) {
+                    $title = 'Payment';
+                } else {
+                    $title = $transaction->description ?? 'Transaction';
+                }
 
-        DB::transaction(function () use (
-            $senderWallet,
-            $receiverWallet,
-            $request,
-            $senderUser,
-            $receiverUser
-        ) {
+                /*
+                |--------------------------------------------------------------------------
+                | DISPLAY AMOUNT
+                |--------------------------------------------------------------------------
+                */
 
-            $senderWallet->balance -= $request->amount;
-            $senderWallet->save();
+                $amount = abs((float) $transaction->amount);
 
-            $receiverWallet->balance += $request->amount;
-            $receiverWallet->save();
+                $displayAmount = $direction === 'income'
+                    ? $amount
+                    : -$amount;
 
-            Transaction::create([
-                'sender_id' => $senderUser->id,
-                'receiver_id' => $receiverUser->id,
-                'type' => 'transfer',
-                'amount' => $request->amount,
-                'description' => 'Transfer to ' . $receiverUser->username
-            ]);
-        });
+                /*
+                |--------------------------------------------------------------------------
+                | RETURN DATA
+                |--------------------------------------------------------------------------
+                */
+
+                return [
+                    'id' => $transaction->id,
+
+                    'user_id' => $transaction->user_id,
+
+                    'performed_by' => $transaction->performed_by,
+
+                    'type' => $transaction->type,
+
+                    'amount' => $amount,
+
+                    'direction' => $direction,
+
+                    'display_amount' => $displayAmount,
+
+                    'title' => $title,
+
+                    'description' => $transaction->description,
+
+                    'created_at' => $transaction->created_at,
+                    'updated_at' => $transaction->updated_at,
+                ];
+            });
 
         return response()->json([
-            'message' => 'Transfer successful'
+            'success' => true,
+            'data' => $transactions
         ]);
     }
 
-    public function history()
+    public function adminHistory()
     {
-        $userId = Auth::id();
-
-        $transactions = Transaction::where('sender_id', $userId)
-            ->orWhere('receiver_id', $userId)
-            ->with(['sender', 'receiver'])
+        $transactions = Transaction::with([
+            'user:id,username,email',
+            'performedBy:id,username'
+        ])
             ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($trx) use ($userId) {
-
-                //iniciate
-                $title = '';
-                $sign = '+';
-
-                // TOPUP
-                if ($trx->type === 'topup') {
-                    $title = 'Top Up Balance';
-                    $sign = '+';
-                }
-
-                // TRANSFER KELUAR
-                else if ($trx->sender_id == $userId) {
-                    $title = 'Transfer to ' . $trx->receiver->username;
-                    $sign = '-';
-                }
-
-                // TRANSFER MASUK
-                else if ($trx->receiver_id == $userId) {
-                    $title = 'Received from ' . $trx->sender->username;
-                    $sign = '+';
-                }
-
-                return [
-                    'id' => $trx->id,
-                    'title' => $title,
-                    'type' => $trx->type,
-                    'amount' => $trx->amount,
-                    'sign' => $sign,
-                    'created_at' => $trx->created_at,
-                ];
-            }); 
+            ->get();
 
         return response()->json([
-            'message' => 'Success get transactions',
+            'success' => true,
             'data' => $transactions
         ]);
+    }
+
+    public function customerHistory($id)
+    {
+        try {
+            $customer = User::where('role', 'customer')->find($id);
+
+            if (!$customer) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Customer not found.'
+                ], 404);
+            }
+
+            $transactions = Transaction::with([
+                'performedBy:id,username'
+            ])
+                ->where('user_id', $id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $transactions
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load customer transactions.',
+                'error' => $th->getMessage()
+            ], 500);
+        }
     }
 }

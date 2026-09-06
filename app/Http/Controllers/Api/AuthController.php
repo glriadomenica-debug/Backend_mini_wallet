@@ -180,10 +180,45 @@ class AuthController extends Controller
     public function index()
     {
         try {
-            $users = User::all();
-            return ApiMessage::success('Success get data', $users, 200);
+            $users = User::where('role', 'customer')
+                ->with('wallet')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return ApiMessage::success(
+                'Success get customers',
+                $users,
+                200
+            );
         } catch (\Throwable $th) {
             return ApiMessage::error($th->getMessage(), 500);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $customer = User::where('role', 'customer')
+                ->with('wallet')
+                ->find($id);
+
+            if (!$customer) {
+                return ApiMessage::error(
+                    'Customer not found',
+                    404
+                );
+            }
+
+            return ApiMessage::success(
+                'Success get customer',
+                $customer,
+                200
+            );
+        } catch (\Throwable $th) {
+            return ApiMessage::error(
+                $th->getMessage(),
+                500
+            );
         }
     }
 }
